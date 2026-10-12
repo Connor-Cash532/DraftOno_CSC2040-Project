@@ -29,27 +29,27 @@ late final HashMap<String, String> ids;
 
 Future<void> main() async{
   ids = await readExcel();
-  runApp(const TextFieldExampleApp());
+  runApp(const MainDraftPage());
   
 }
 
-class TextFieldExampleApp extends StatelessWidget {
-  const TextFieldExampleApp({super.key});
+class MainDraftPage extends StatelessWidget {
+  const MainDraftPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(home: TextFieldExample());
+    return const MaterialApp(home: DraftPage());
   }
 }
 
-class TextFieldExample extends StatefulWidget {
-  const TextFieldExample({super.key});
+class DraftPage extends StatefulWidget {
+  const DraftPage({super.key});
 
   @override
-  State<TextFieldExample> createState() => _TextFieldExampleState();
+  State<DraftPage> createState() => _DraftPageState();
 }
 
-class _TextFieldExampleState extends State<TextFieldExample> {
+class _DraftPageState extends State<DraftPage> {
 
   String checkID(String id){
     if(ids.containsKey(id)){
