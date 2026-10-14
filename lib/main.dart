@@ -8,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:csv/csv.dart';
 
 import 'package:excel_plus/excel_plus.dart';
+import 'sophia_features.dart';
+
  
 Future <HashMap<String, String>> readExcel() async { // Function reads the file Master.xlsx in the assets folder
   WidgetsFlutterBinding.ensureInitialized();
@@ -142,27 +144,42 @@ class _DraftPageState extends State<DraftPage> {
           );
         },
       );
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: 
-        Container(
-          color: Colors.yellow,
-          child: Column( // Column is a widget that takes in children and places widgets vertically
-            children: [
-              Padding(padding: EdgeInsets.all(16.0),
-                child: gridB(context), 
-              ),
-              Row(children: [ // Row is a widget that takes in children and places widgets horizontally
-                Padding(padding: EdgeInsets.all(5.0),),
-                  Expanded( // expanded causes the child widgets to take up all available horizontal space
-                    child: buildTextField()
-                  ),
-                ],
-              )
-            ],
-        )
-        ),
-    );
-  }
+  
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    // button to open my draft setup page
+    floatingActionButton: FloatingActionButton.extended(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const SophiaFeatures(),
+          ),
+        );
+      },
+      icon: const Icon(Icons.dashboard),
+      label: const Text('Draft Setup'),
+    ),
+
+    body:
+      Container(
+        color: Colors.yellow,
+        child: Column( // Column is a widget that takes in children and places widgets vertically
+          children: [
+            Padding(padding: EdgeInsets.all(16.0),
+              child: gridB(context),
+            ),
+            Row(children: [ // Row is a widget that takes in children and places widgets horizontally
+              Padding(padding: EdgeInsets.all(5.0),),
+                Expanded( // expanded causes the child widgets to take up all available horizontal space
+                  child: buildTextField()
+                ),
+              ],
+            )
+          ],
+      )
+      ),
+  );
+}
 }
