@@ -11,20 +11,45 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:draft_ono_app/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('Reveal ID', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    ids = await readExcel();
+    await tester.pumpWidget(const MainDraftPage());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    final expectedTextField = find.byKey(Key('idTextField'));
+    expect(expectedTextField, findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.enterText(expectedTextField, '16010');
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    
+    final grid1 = find.byKey(Key('Grid 0'));
+    final Text textGrid1 = tester.widget<Text>(grid1);
+    final String? actualTextGrid1 = textGrid1.data;
+    expect(actualTextGrid1, "Pick: Kevin Garnett");
+
+    await tester.enterText(expectedTextField, 'helloworld');
+    await tester.pump(); 
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    Finder grid2 = find.byKey(Key('Grid 1'));
+    Text textGrid2 = tester.widget<Text>(grid2);
+    String? actualTextGrid2 = textGrid2.data;
+    expect(actualTextGrid2, "Pick: ");
+
+    await tester.enterText(expectedTextField, '18290');
+    await tester.pump(); 
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    textGrid2 = tester.widget<Text>(grid2);
+    actualTextGrid2 = textGrid2.data;
+    expect(actualTextGrid2, "Pick: Sam Cassell");
   });
 }
+//git commit -m "Add unit test for player id reveal"

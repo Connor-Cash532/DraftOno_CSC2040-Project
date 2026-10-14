@@ -18,7 +18,6 @@ Future <HashMap<String, String>> readExcel() async { // Function reads the file 
   String id;
   String name;
   for (final row in excel.streamRowsAsMaps('Master')) { 
-    print(row['ID']);
     ids[row['ID'].toString()] = row['Player'];
   }
   return ids; //Function returns a hashmap with the ID as the key and player name as the value
@@ -74,7 +73,7 @@ class _DraftPageState extends State<DraftPage> {
 
   final idCotroller = TextEditingController();
   String tempId = "";
-  var id = <String>["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
+  List id = <String>["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
   int ind = 0;
   String player = "";
   Widget buildTextField() =>  TextField( // widget for a text input box that saves the id and checks if it is valid.
@@ -98,6 +97,7 @@ class _DraftPageState extends State<DraftPage> {
               print(id);
               idCotroller.clear();
             },
+            key: Key('idTextField'),
             controller: idCotroller,
             decoration: InputDecoration(
               border: OutlineInputBorder(),
@@ -132,6 +132,7 @@ class _DraftPageState extends State<DraftPage> {
               ),
               child: Center( // grid item contnet
                 child: Text("Pick: " + id[index],
+                  key: Key("Grid $index"),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 15,
