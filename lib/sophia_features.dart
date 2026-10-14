@@ -5,7 +5,12 @@ import 'package:flutter/material.dart';
 // includes team setup, salary cap, draft grid, and player ratings
 
 class SophiaFeatures extends StatefulWidget {
-  const SophiaFeatures({super.key});
+  final List<String> players;
+
+  const SophiaFeatures({
+    super.key,
+    required this.players,
+  });
 
   @override
   State<SophiaFeatures> createState() => _SophiaFeaturesState();
@@ -335,7 +340,9 @@ class _SophiaFeaturesState extends State<SophiaFeatures> {
           ),
           const SizedBox(height: 4),
           Text(
-            draftedPlayers[key] ?? 'Available', // player name goes here later
+            key < widget.players.length && widget.players[key].isNotEmpty
+    ? widget.players[key]
+    : 'Available', // player name goes here later
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white,
