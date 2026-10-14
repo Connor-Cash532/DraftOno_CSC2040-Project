@@ -9,7 +9,7 @@ import 'package:csv/csv.dart';
 
 import 'package:excel_plus/excel_plus.dart';
  
-Future <HashMap<String, String>> readExcel() async {
+Future <HashMap<String, String>> readExcel() async { // Function reads the file Master.xlsx in the assets folder
   WidgetsFlutterBinding.ensureInitialized();
 
   final data = await rootBundle.load('assets/Master.xlsx');
@@ -21,7 +21,7 @@ Future <HashMap<String, String>> readExcel() async {
     print(row['ID']);
     ids[row['ID'].toString()] = row['Player'];
   }
-  return ids;
+  return ids; //Function returns a hashmap with the ID as the key and player name as the value
 }
 
 late final HashMap<String, String> ids;
@@ -77,13 +77,13 @@ class _DraftPageState extends State<DraftPage> {
   var id = <String>["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
   int ind = 0;
   String player = "";
-  Widget buildTextField() =>  TextField(
-            onChanged: (value) {
+  Widget buildTextField() =>  TextField( // widget for a text input box that saves the id and checks if it is valid.
+            onChanged: (value) { // saves the content of the box
               tempId = value;
               print(tempId);
             },
             //onSubmitted: (value) => print(value),
-            onSubmitted: (value) {
+            onSubmitted: (value) { // if the entered value is an id and there are still available picks then it changes the state of the gridB widget
               tempId = value;
               player = checkID(tempId);
               print(tempId);
@@ -110,27 +110,27 @@ class _DraftPageState extends State<DraftPage> {
             ),
           );
 
-  Widget gridB(BuildContext context) => GridView.builder(
+  Widget gridB(BuildContext context) => GridView.builder( //Grid Wdige
     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 5,
+                crossAxisCount: 5, //5 Teams, for changing to 3 to 5 teams this should be a variable
                 crossAxisSpacing: 0,
                 mainAxisSpacing: 0,
                 //childAspectRatio: (MediaQuery.of(context).size.width / MediaQuery.of(context).size.height),
                 //childAspectRatio: 0.5,
                 mainAxisExtent: MediaQuery.of(context).size.height * 0.085,
               ),
-    itemCount: 50,
-    shrinkWrap: true,
+    itemCount: 50, //# of teams times 10
+    shrinkWrap: true, //causes the grid to be not scrollable if it does not fit in the screen size
     itemBuilder: (context, index) {
-          return Padding(
+          return Padding( //Padding widget that adds padding between the grid boxes
             padding: const EdgeInsets.all(2.0),
-            child: Container(
+            child: Container( // grid item
               decoration: BoxDecoration(
                 //color: Colors.green,
-                color: index < ind ? Colors.green : index == ind ? Colors.blue : Colors.white,
-                borderRadius: BorderRadius.circular(10.0),
+                color: index < ind ? Colors.green : index == ind ? Colors.blue : Colors.white, // colors grid based on current pick
+                borderRadius: BorderRadius.circular(10.0), // rounds the edges for the grid item
               ),
-              child: Center(
+              child: Center( // grid item contnet
                 child: Text("Pick: " + id[index],
                   style: TextStyle(
                     color: Colors.white,
@@ -148,14 +148,14 @@ class _DraftPageState extends State<DraftPage> {
       body: 
         Container(
           color: Colors.yellow,
-          child: Column(
+          child: Column( // Column is a widget that takes in children and places widgets vertically
             children: [
               Padding(padding: EdgeInsets.all(16.0),
                 child: gridB(context), 
               ),
-              Row(children: [ 
+              Row(children: [ // Row is a widget that takes in children and places widgets horizontally
                 Padding(padding: EdgeInsets.all(5.0),),
-                  Expanded(
+                  Expanded( // expanded causes the child widgets to take up all available horizontal space
                     child: buildTextField()
                   ),
                 ],
