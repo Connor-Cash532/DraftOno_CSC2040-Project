@@ -12,7 +12,6 @@ import 'package:draft_ono_app/main.dart';
 
 void main() {
   testWidgets('Reveal ID', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
     ids = await readExcel();
     await tester.pumpWidget(const MainDraftPage());
 
@@ -51,5 +50,25 @@ void main() {
     actualTextGrid2 = textGrid2.data;
     expect(actualTextGrid2, "Pick: Sam Cassell");
   });
+
+  testWidgets('Reveal ID Button', (WidgetTester tester) async {
+    ids = await readExcel();
+    await tester.pumpWidget(const MainDraftPage());
+
+    final expectedTextField = find.byKey(Key('idTextField'));
+    expect(expectedTextField, findsOneWidget);
+
+    await tester.enterText(expectedTextField, '16010');
+    await tester.pump();
+
+    final submitTextButton = find.byKey(Key('SubmitPickButton'));
+    await tester.tap(submitTextButton);
+    await tester.pump();
+
+    final grid1 = find.byKey(Key('Grid 0'));
+    final Text textGrid1 = tester.widget<Text>(grid1);
+    final String? actualTextGrid1 = textGrid1.data;
+    expect(actualTextGrid1, "Pick: Kevin Garnett");
+
+  });
 }
-//git commit -m "Add unit test for player id reveal"

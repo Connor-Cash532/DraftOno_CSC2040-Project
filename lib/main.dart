@@ -159,6 +159,26 @@ class _DraftPageState extends State<DraftPage> {
                   Expanded( // expanded causes the child widgets to take up all available horizontal space
                     child: buildTextField()
                   ),
+                Padding(padding: EdgeInsets.all(5.0),),
+                  TextButton(
+                    key: Key('SubmitPickButton'),
+                    style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                      foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                      backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                    ),
+                    onPressed: (){ 
+                      player = checkID(tempId);
+                      if(ind < 50 && player != 'Temp'){
+                        id[ind] = player;
+                        ind++;
+                        setState(() {
+                          gridB(context);
+                        });
+                      }
+                      idCotroller.clear();
+                    }, 
+                    child: Text("Make Pick")
+                  ),
                 ],
               )
             ],
