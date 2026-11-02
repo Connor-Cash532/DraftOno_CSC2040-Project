@@ -235,6 +235,26 @@ class _DraftPageState extends State<DraftPage> {
                     }, 
                     child: Text("Make Pick")
                   ),
+                                    Padding(padding: EdgeInsets.all(5.0),),
+                  TextButton(
+                    key: Key('UndoPickButton'),
+                    style: ButtonStyle(
+                      foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                      backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                    ),
+                    onPressed: (){
+                      if(ind > 0){
+                        ind--;
+                        playerNames[ind] = '';
+                        chosenPlayers.remove(tempId);
+                        setState(() {
+                          gridB(context);
+                        });
+                      }
+                    }, 
+                    child: Text("Undo Pick")
+                  ),
+                  Padding(padding: EdgeInsets.all(5.0),),
                 ],
               )
             ],

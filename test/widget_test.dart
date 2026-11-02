@@ -12,13 +12,13 @@ import 'package:draft_ono_app/main.dart';
 
 void main() {
 
-    Future<void> completeSetup( WidgetTester tester) async{
-      await tester.pumpWidget(const MainDraftPage());
-      await tester.pump();
+  Future<void> completeSetup( WidgetTester tester) async{
+    await tester.pumpWidget(const MainDraftPage());
+    await tester.pump();
 
-      await tester.tap(find.text('Start draft'));
-      await tester.pumpAndSettle();
-    }
+    await tester.tap(find.text('Start draft'));
+    await tester.pumpAndSettle();
+  }
   
   setUpAll(() async {
     ids = await readExcel();
@@ -26,44 +26,44 @@ void main() {
   
   
     testWidgets('Reveal ID', (WidgetTester tester) async {
-      await completeSetup(tester);
+    await completeSetup(tester);
       
-      await tester.pumpWidget(const MainDraftPage());
+    await tester.pumpWidget(const MainDraftPage());
 
-      final expectedTextField = find.byKey(Key('idTextField'));
-      expect(expectedTextField, findsOneWidget);
+    final expectedTextField = find.byKey(Key('idTextField'));
+    expect(expectedTextField, findsOneWidget);
 
-      await tester.enterText(expectedTextField, '16010');
-      await tester.pump();
+    await tester.enterText(expectedTextField, '16010');
+    await tester.pump();
 
-      await tester.testTextInput.receiveAction(TextInputAction.done);
-      await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
       
-      final grid1 = find.byKey(Key('Grid 0'));
-      final Text textGrid1 = tester.widget<Text>(grid1);
-      final String? actualTextGrid1 = textGrid1.data;
-      expect(actualTextGrid1, "Pick: Kevin Garnett");
+    final grid1 = find.byKey(Key('Grid 0'));
+    final Text textGrid1 = tester.widget<Text>(grid1);
+    final String? actualTextGrid1 = textGrid1.data;
+    expect(actualTextGrid1, "Pick: Kevin Garnett");
 
-      await tester.enterText(expectedTextField, 'helloworld');
-      await tester.pump(); 
+    await tester.enterText(expectedTextField, 'helloworld');
+    await tester.pump(); 
 
-      await tester.testTextInput.receiveAction(TextInputAction.done);
-      await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
 
-      Finder grid2 = find.byKey(Key('Grid 1'));
-      Text textGrid2 = tester.widget<Text>(grid2);
-      String? actualTextGrid2 = textGrid2.data;
-      expect(actualTextGrid2, "Pick: ");
+    Finder grid2 = find.byKey(Key('Grid 1'));
+    Text textGrid2 = tester.widget<Text>(grid2);
+    String? actualTextGrid2 = textGrid2.data;
+    expect(actualTextGrid2, "Pick: ");
 
-      await tester.enterText(expectedTextField, '18290');
-      await tester.pump(); 
+    await tester.enterText(expectedTextField, '18290');
+    await tester.pump(); 
 
-      await tester.testTextInput.receiveAction(TextInputAction.done);
-      await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
 
-      textGrid2 = tester.widget<Text>(grid2);
-      actualTextGrid2 = textGrid2.data;
-      expect(actualTextGrid2, "Pick: Sam Cassell");
+    textGrid2 = tester.widget<Text>(grid2);
+    actualTextGrid2 = textGrid2.data;
+    expect(actualTextGrid2, "Pick: Sam Cassell");
   });
 
   testWidgets('Reveal ID Button', (WidgetTester tester) async {
@@ -127,4 +127,45 @@ void main() {
     expect(actualTextGrid2, "Pick: Michael Redd");
 
   });
+
+  testWidgets('Undo Pick Button', (WidgetTester tester) async {
+    await completeSetup(tester);
+    
+    final expectedTextField = find.byKey(Key('idTextField'));
+    expect(expectedTextField, findsOneWidget);
+
+    await tester.enterText(expectedTextField, '16010');
+    await tester.pump();
+
+    final submitTextButton = find.byKey(Key('SubmitPickButton'));
+    await tester.tap(submitTextButton);
+    await tester.pump();
+
+    final grid1 = find.byKey(Key('Grid 0'));
+    Text textGrid1 = tester.widget<Text>(grid1);
+    String? actualTextGrid1 = textGrid1.data;
+    expect(actualTextGrid1, "Pick: Kevin Garnett");
+
+    final undoButton = find.byKey(Key('UndoPickButton'));
+    await tester.tap(undoButton);
+    await tester.pump();
+
+    textGrid1 = tester.widget<Text>(grid1);
+    actualTextGrid1 = textGrid1.data;
+    expect(actualTextGrid1, "Pick: ");
+
+    await tester.tap(undoButton);
+    await tester.pump();
+
+    await tester.enterText(expectedTextField, '16010');
+    await tester.pump();
+
+    await tester.tap(submitTextButton);
+    await tester.pump();
+
+    textGrid1 = tester.widget<Text>(grid1);
+    actualTextGrid1 = textGrid1.data;
+    expect(actualTextGrid1, "Pick: Kevin Garnett");
+  });
+
 }
