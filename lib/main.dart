@@ -104,6 +104,7 @@ class _DraftPageState extends State<DraftPage> {
               print(tempId);
               print(ind);
               if(ind < totalPicks && player != 'Temp' && !chosenPlayers.containsKey(tempId)){
+                chosenPlayers[tempId] = player; 
                 playerNames[ind] = player;
                 ind++;
                 setState(() {
@@ -118,7 +119,6 @@ class _DraftPageState extends State<DraftPage> {
             decoration: InputDecoration(
               border: OutlineInputBorder(),
               labelText: 'ID',
-
               suffixIcon: IconButton(
                 icon: Icon(Icons.close),
                 onPressed: () => idCotroller.clear(),
@@ -223,8 +223,9 @@ class _DraftPageState extends State<DraftPage> {
                     ),
                     onPressed: (){ 
                       player = checkID(tempId);
-                      if(ind < 50 && player != 'Temp'){
+                      if(ind < 50 && player != 'Temp' && !chosenPlayers.containsKey(tempId)){
                         playerNames[ind] = player;
+                        chosenPlayers[tempId] = player; 
                         ind++;
                         setState(() {
                           gridB(context);
