@@ -1,6 +1,6 @@
 import 'dart:collection';
 import 'dart:io';
-
+import 'dart:async';
 import 'package:flutter/services.dart' show rootBundle, ByteData;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -18,8 +18,6 @@ Future <HashMap<String, String>> readExcel() async { // Function reads the file 
   final data = await rootBundle.load('assets/Master.xlsx');
   final excel = Excel.decodeBytes(data.buffer.asUint8List());
   HashMap<String, String> ids = HashMap();
-  String id;
-  String name;
   for (final row in excel.streamRowsAsMaps('Master')) { 
     ids[row['ID'].toString()] = row['Player'];
   }
@@ -90,7 +88,6 @@ class _DraftPageState extends State<DraftPage> {
   int ind = 0;
   HashMap<String, String> chosenPlayers = HashMap<String, String>();
 
-
   String player = "";
   Widget buildTextField() =>  TextField( // widget for a text input box that saves the id and checks if it is valid.
             onChanged: (value) { // saves the content of the box
@@ -110,6 +107,8 @@ class _DraftPageState extends State<DraftPage> {
                 setState(() {
                   gridB(context);
                 });
+                _resetTimer();
+                _startTimer();
               }
               print(playerNames);
               idCotroller.clear();
@@ -161,7 +160,7 @@ class _DraftPageState extends State<DraftPage> {
                 crossAxisSpacing: 0,
                 mainAxisSpacing: 0,
                 // lowered from 0.085 to leave room for the team name row
-                mainAxisExtent: MediaQuery.of(context).size.height * 0.075,
+                mainAxisExtent: MediaQuery.of(context).size.height * 0.0725,
               ),
     itemCount: totalPicks, //# of teams times 10
     shrinkWrap: true, //causes the grid to be not scrollable if it does not fit in the screen size
@@ -193,6 +192,90 @@ class _DraftPageState extends State<DraftPage> {
           );
         },
       );
+
+  void _startTimer(){
+      tim = Timer.periodic(Duration(seconds: 1), (timer) {
+        if(timeLeft > 0){
+          setState(() {
+            timeLeft--;
+          });
+        }
+        else{
+          timer.cancel();
+        }
+      });
+
+  }
+
+  void _resetTimer(){
+    tim?.cancel();
+    setState(() {
+      timeLeft = MAX_SECONDS;
+    });
+  }
+
+  int timeLeft = MAX_SECONDS;
+  static const int MAX_SECONDS = 120;
+  Timer? tim;
+  Widget timerB(BuildContext context){    
+    return Container(
+      //height: MediaQuery.of(context).size.height * 0.15,
+      decoration: BoxDecoration(
+        color: Colors.blue, 
+        borderRadius: BorderRadius.circular(20.0), 
+      ),
+      child: Column(
+        children: [
+            Text(
+              style: TextStyle( fontSize: MediaQuery.of(context).size.height * 0.05),
+              timeLeft.toString(),
+            ),
+          Row(
+            children: [
+              Padding(padding: EdgeInsets.all(5.0),),
+              TextButton(
+                onPressed: () {
+                  _startTimer();
+                },
+                style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                  backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                ),
+                child: Text("Start"),
+              ),
+              Padding(padding: EdgeInsets.all(5.0),),
+              TextButton(
+                onPressed: () {
+                  _resetTimer();
+                },
+                style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                  backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                ),
+                child: Text("Reset"),
+              ),
+              Padding(padding: EdgeInsets.all(5.0),),
+              TextButton(
+                onPressed: () {
+                  tim?.cancel();
+                },
+                style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                  backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
+                ),
+                child: Text("Pause"),
+              ),
+              Padding(padding: EdgeInsets.all(5.0),),
+            ],
+          ),
+          Padding(padding: EdgeInsets.all(5.0),),
+        ],
+      ),
+    );
+    
+  }
+
+    
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -230,12 +313,14 @@ class _DraftPageState extends State<DraftPage> {
                         setState(() {
                           gridB(context);
                         });
+                        _resetTimer();
+                        _startTimer();
                       }
                       idCotroller.clear();
                     }, 
                     child: Text("Make Pick")
                   ),
-                                    Padding(padding: EdgeInsets.all(5.0),),
+                  Padding(padding: EdgeInsets.all(5.0),),
                   TextButton(
                     key: Key('UndoPickButton'),
                     style: ButtonStyle(
@@ -250,11 +335,14 @@ class _DraftPageState extends State<DraftPage> {
                         setState(() {
                           gridB(context);
                         });
+                        _resetTimer();
+                        _startTimer();
                       }
                     }, 
                     child: Text("Undo Pick")
                   ),
                   Padding(padding: EdgeInsets.all(5.0),),
+                  timerB(context)
                 ],
               )
             ],
