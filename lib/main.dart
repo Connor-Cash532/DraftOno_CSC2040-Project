@@ -7,11 +7,11 @@ import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:csv/csv.dart';
 
-import 'package:excel_plus/excel_plus.dart' hide Border; // hide excel's Border so Flutter's Border is used in the grid
-
+import 'package:excel_plus/excel_plus.dart' hide Border;
+import 'sophia_features.dart';
 import 'setup_page.dart';
 import 'team.dart';
-
+ 
 Future <HashMap<String, String>> readExcel() async { // Function reads the file Master.xlsx in the assets folder
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -20,11 +20,35 @@ Future <HashMap<String, String>> readExcel() async { // Function reads the file 
   HashMap<String, String> ids = HashMap();
   for (final row in excel.streamRowsAsMaps('Master')) { 
     ids[row['ID'].toString()] = row['Player'];
+    final id = row['ID'].toString();
+
+    double stat(String column) =>
+        double.tryParse(row[column].toString()) ?? 0;
+
+    final games = stat('G');
+    final points = games > 0 ? stat('PTS') / games : 0;
+    final rebounds = games > 0 ? stat('TRB') / games : 0;
+    final assists = games > 0 ? stat('AST') / games : 0;
+
+    final score = points + rebounds * 1.2 + assists * 1.5;
+
+    if (score >= 30) {
+      playerGrades[id] = 'A';
+    } else if (score >= 23) {
+      playerGrades[id] = 'B';
+    } else if (score >= 16) {
+      playerGrades[id] = 'C';
+    } else if (score >= 9) {
+      playerGrades[id] = 'D';
+    } else {
+      playerGrades[id] = 'F';
+    }
   }
   return ids; //Function returns a hashmap with the ID as the key and player name as the value
 }
 
 late final HashMap<String, String> ids;
+final Map<String, String> playerGrades = {};
 
 
 Future<void> main() async{
@@ -45,10 +69,16 @@ class MainDraftPage extends StatelessWidget {
 }
 
 class DraftPage extends StatefulWidget {
-  const DraftPage({super.key, required this.teams, this.maxSeconds = 120});
+  const DraftPage({
+    super.key,
+    required this.teams,
+    this.maxSeconds = 120,
+    this.salaryCap = 110,
+  });
 
   final List<Team> teams; // teams chosen on the setup page (3 to 5)
   final int maxSeconds;   // pick timer length chosen on the setup page
+  final int salaryCap;    // salary cap chosen on the setup page (in millions)
 
   @override
   State<DraftPage> createState() => _DraftPageState();
@@ -87,6 +117,8 @@ class _DraftPageState extends State<DraftPage> {
   String tempId = "";
   List playerNames = <String>["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
   int ind = 0;
+  Map<int, String> playerRatings = {}; // stores automatic letter grades
+  List<String> draftedIds = []; // tracks IDs so undo removes the correct player
   HashMap<String, String> chosenPlayers = HashMap<String, String>();
 
   String player = "";
@@ -102,14 +134,32 @@ class _DraftPageState extends State<DraftPage> {
               print(tempId);
               print(ind);
               if(ind < totalPicks && player != 'Temp' && !chosenPlayers.containsKey(tempId)){
-                chosenPlayers[tempId] = player; 
+                chosenPlayers[tempId] = player;
                 playerNames[ind] = player;
+                draftedIds.add(tempId);
+                playerRatings[ind] = playerGrades[tempId] ?? 'F';
                 ind++;
                 setState(() {
                   gridB(context);
                 });
                 _resetTimer();
                 _startTimer();
+              }
+              else if (player == 'Temp') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Invalid Player ID. Please enter a valid ID.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+              else if (chosenPlayers.containsKey(tempId)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('This player has already been drafted!'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
               }
               print(playerNames);
               idCotroller.clear();
@@ -155,14 +205,16 @@ class _DraftPageState extends State<DraftPage> {
     ],
   );
 
-  Widget gridB(BuildContext context) => GridView.builder( //Grid Wdige
+  Widget gridB(BuildContext context) => GridView.builder( //Grid Widget
+    physics: const NeverScrollableScrollPhysics(),
     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: numTeams, // one column per team
-                crossAxisSpacing: 0,
-                mainAxisSpacing: 0,
-                // lowered from 0.085 to leave room for the team name row
-                mainAxisExtent: MediaQuery.of(context).size.height * 0.0725,
-              ),
+      crossAxisCount: numTeams,
+      crossAxisSpacing: 0,
+      mainAxisSpacing: 0,
+      mainAxisExtent: MediaQuery.of(context).size.height * 0.65 / rounds,
+    ),
+    // lowered from 0.085 to leave room for the team name row
+
     itemCount: totalPicks, //# of teams times 10
     shrinkWrap: true, //causes the grid to be not scrollable if it does not fit in the screen size
     itemBuilder: (context, index) {
@@ -181,12 +233,29 @@ class _DraftPageState extends State<DraftPage> {
                 borderRadius: BorderRadius.circular(10.0), // rounds the edges for the grid item
               ),
               child: Center( // grid item contnet
-                child: Text("Pick: " + playerNames[index],
-                  key: Key("Grid $index"),
-                  style: TextStyle(
-                    color: isPicked ? Colors.white : Colors.black87,
-                    fontSize: 15,
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Pick: " + playerNames[index],
+                      key: Key("Grid $index"),
+                      style: TextStyle(
+                        color: isPicked ? Colors.white : Colors.black87,
+                        fontSize: 15,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    if (isPicked)
+                      Text(
+                        'Grade: ${playerRatings[index] ?? "N/A"}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -289,7 +358,10 @@ class _DraftPageState extends State<DraftPage> {
                 child: Column(
                   children: [
                     teamHeaders(),
-                    gridB(context),
+                    SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.65,
+                      child: gridB(context),
+                    ),
                   ],
                 ),
               ),
@@ -307,9 +379,11 @@ class _DraftPageState extends State<DraftPage> {
                     ),
                     onPressed: (){ 
                       player = checkID(tempId);
-                      if(ind < 50 && player != 'Temp' && !chosenPlayers.containsKey(tempId)){
+                      if(ind < totalPicks && player != 'Temp' && !chosenPlayers.containsKey(tempId)){
                         playerNames[ind] = player;
-                        chosenPlayers[tempId] = player; 
+                        chosenPlayers[tempId] = player;
+                        draftedIds.add(tempId);
+                        playerRatings[ind] = playerGrades[tempId] ?? 'F';
                         ind++;
                         setState(() {
                           gridB(context);
@@ -332,7 +406,9 @@ class _DraftPageState extends State<DraftPage> {
                       if(ind > 0){
                         ind--;
                         playerNames[ind] = '';
-                        chosenPlayers.remove(tempId);
+                        final lastId = draftedIds.removeLast();
+                        chosenPlayers.remove(lastId);
+                        playerRatings.remove(ind);
                         setState(() {
                           gridB(context);
                         });
@@ -343,12 +419,12 @@ class _DraftPageState extends State<DraftPage> {
                     child: Text("Undo Pick")
                   ),
                   Padding(padding: EdgeInsets.all(5.0),),
-                  timerB(context)
-                ],
-              )
-            ],
-        )
-        ),
-    );
-  }
-}
+                                    timerB(context)
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                      );
+                    }
+                  }
