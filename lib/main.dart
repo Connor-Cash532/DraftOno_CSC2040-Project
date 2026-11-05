@@ -195,6 +195,7 @@ class _DraftPageState extends State<DraftPage> {
       );
 
   void _startTimer(){
+    tim?.cancel(); 
       tim = Timer.periodic(Duration(seconds: 1), (timer) {
         if(timeLeft > 0){
           setState(() {
