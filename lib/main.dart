@@ -45,9 +45,10 @@ class MainDraftPage extends StatelessWidget {
 }
 
 class DraftPage extends StatefulWidget {
-  const DraftPage({super.key, required this.teams});
+  const DraftPage({super.key, required this.teams, this.maxSeconds = 120});
 
   final List<Team> teams; // teams chosen on the setup page (3 to 5)
+  final int maxSeconds;   // pick timer length chosen on the setup page
 
   @override
   State<DraftPage> createState() => _DraftPageState();
@@ -214,8 +215,8 @@ class _DraftPageState extends State<DraftPage> {
     });
   }
 
-  int timeLeft = MAX_SECONDS;
-  static const int MAX_SECONDS = 120;
+  late int timeLeft = MAX_SECONDS; // late so it can read MAX_SECONDS from the widget
+  int get MAX_SECONDS => widget.maxSeconds; // set on the setup page (was a constant 120)
   Timer? tim;
   Widget timerB(BuildContext context){    
     return Container(
