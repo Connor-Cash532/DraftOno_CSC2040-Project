@@ -1,6 +1,6 @@
 import 'dart:collection';
 import 'dart:io';
-
+import 'dart:async';
 import 'package:flutter/services.dart' show rootBundle, ByteData;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -18,16 +18,37 @@ Future <HashMap<String, String>> readExcel() async { // Function reads the file 
   final data = await rootBundle.load('assets/Master.xlsx');
   final excel = Excel.decodeBytes(data.buffer.asUint8List());
   HashMap<String, String> ids = HashMap();
-  String id;
-  String name;
-  for (final row in excel.streamRowsAsMaps('Master')) {
-    print(row['ID']);
+  for (final row in excel.streamRowsAsMaps('Master')) { 
     ids[row['ID'].toString()] = row['Player'];
+    final id = row['ID'].toString();
+
+    double stat(String column) =>
+        double.tryParse(row[column].toString()) ?? 0;
+
+    final games = stat('G');
+    final points = games > 0 ? stat('PTS') / games : 0;
+    final rebounds = games > 0 ? stat('TRB') / games : 0;
+    final assists = games > 0 ? stat('AST') / games : 0;
+
+    final score = points + rebounds * 1.2 + assists * 1.5;
+
+    if (score >= 30) {
+      playerGrades[id] = 'A';
+    } else if (score >= 23) {
+      playerGrades[id] = 'B';
+    } else if (score >= 16) {
+      playerGrades[id] = 'C';
+    } else if (score >= 9) {
+      playerGrades[id] = 'D';
+    } else {
+      playerGrades[id] = 'F';
+    }
   }
   return ids; //Function returns a hashmap with the ID as the key and player name as the value
 }
 
 late final HashMap<String, String> ids;
+final Map<String, String> playerGrades = {};
 
 
 Future<void> main() async{
@@ -48,9 +69,16 @@ class MainDraftPage extends StatelessWidget {
 }
 
 class DraftPage extends StatefulWidget {
-  const DraftPage({super.key, required this.teams});
+  const DraftPage({
+    super.key,
+    required this.teams,
+    this.maxSeconds = 120,
+    this.salaryCap = 110,
+  });
 
   final List<Team> teams; // teams chosen on the setup page (3 to 5)
+  final int maxSeconds;   // pick timer length chosen on the setup page
+  final int salaryCap;    // salary cap chosen on the setup page (in millions)
 
   @override
   State<DraftPage> createState() => _DraftPageState();
@@ -87,8 +115,12 @@ class _DraftPageState extends State<DraftPage> {
 
   final idCotroller = TextEditingController();
   String tempId = "";
-  var id = <String>["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
+  List playerNames = <String>["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
   int ind = 0;
+  Map<int, String> playerRatings = {}; // stores automatic letter grades
+  List<String> draftedIds = []; // tracks IDs so undo removes the correct player
+  HashMap<String, String> chosenPlayers = HashMap<String, String>();
+
   String player = "";
   Widget buildTextField() =>  TextField( // widget for a text input box that saves the id and checks if it is valid.
             onChanged: (value) { // saves the content of the box
@@ -101,21 +133,42 @@ class _DraftPageState extends State<DraftPage> {
               player = checkID(tempId);
               print(tempId);
               print(ind);
-              if(ind < totalPicks && player != 'Temp'){
-                id[ind] = player;
+              if(ind < totalPicks && player != 'Temp' && !chosenPlayers.containsKey(tempId)){
+                chosenPlayers[tempId] = player;
+                playerNames[ind] = player;
+                draftedIds.add(tempId);
+                playerRatings[ind] = playerGrades[tempId] ?? 'F';
                 ind++;
                 setState(() {
                   gridB(context);
                 });
+                _resetTimer();
+                _startTimer();
               }
-              print(id);
+              else if (player == 'Temp') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Invalid Player ID. Please enter a valid ID.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+              else if (chosenPlayers.containsKey(tempId)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('This player has already been drafted!'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+              print(playerNames);
               idCotroller.clear();
             },
+            key: Key('idTextField'),
             controller: idCotroller,
             decoration: InputDecoration(
               border: OutlineInputBorder(),
               labelText: 'ID',
-
               suffixIcon: IconButton(
                 icon: Icon(Icons.close),
                 onPressed: () => idCotroller.clear(),
@@ -152,14 +205,16 @@ class _DraftPageState extends State<DraftPage> {
     ],
   );
 
-  Widget gridB(BuildContext context) => GridView.builder( //Grid Wdige
+  Widget gridB(BuildContext context) => GridView.builder( //Grid Widget
+    physics: const NeverScrollableScrollPhysics(),
     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: numTeams, // one column per team
-                crossAxisSpacing: 0,
-                mainAxisSpacing: 0,
-                // lowered from 0.085 to leave room for the team name row
-                mainAxisExtent: MediaQuery.of(context).size.height * 0.075,
-              ),
+      crossAxisCount: numTeams,
+      crossAxisSpacing: 0,
+      mainAxisSpacing: 0,
+      mainAxisExtent: MediaQuery.of(context).size.height * 0.65 / rounds,
+    ),
+    // lowered from 0.085 to leave room for the team name row
+
     itemCount: totalPicks, //# of teams times 10
     shrinkWrap: true, //causes the grid to be not scrollable if it does not fit in the screen size
     itemBuilder: (context, index) {
@@ -178,61 +233,198 @@ class _DraftPageState extends State<DraftPage> {
                 borderRadius: BorderRadius.circular(10.0), // rounds the edges for the grid item
               ),
               child: Center( // grid item contnet
-                child: Text("Pick: " + id[index],
-                  style: TextStyle(
-                    color: isPicked ? Colors.white : Colors.black87,
-                    fontSize: 15,
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Pick: " + playerNames[index],
+                      key: Key("Grid $index"),
+                      style: TextStyle(
+                        color: isPicked ? Colors.white : Colors.black87,
+                        fontSize: 15,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    if (isPicked)
+                      Text(
+                        'Grade: ${playerRatings[index] ?? "N/A"}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
           );
         },
       );
-    @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      // Sophia's custom draft board button
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => SophiaFeatures(players: id),
-            ),
-          );
-        },
-        icon: const Icon(Icons.dashboard),
-        label: const Text('Draft Setup'),
-      ),
 
-      // Christina's team headers and Connor's draft grid
-      body: Container(
-        color: Colors.yellow,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  teamHeaders(),
-                  gridB(context),
-                ],
+  void _startTimer(){
+      tim = Timer.periodic(Duration(seconds: 1), (timer) {
+        if(timeLeft > 0){
+          setState(() {
+            timeLeft--;
+          });
+        }
+        else{
+          timer.cancel();
+        }
+      });
+
+  }
+
+  void _resetTimer(){
+    tim?.cancel();
+    setState(() {
+      timeLeft = MAX_SECONDS;
+    });
+  }
+
+  late int timeLeft = MAX_SECONDS; // late so it can read MAX_SECONDS from the widget
+  int get MAX_SECONDS => widget.maxSeconds; // set on the setup page (was a constant 120)
+  Timer? tim;
+  Widget timerB(BuildContext context){    
+    return Container(
+      //height: MediaQuery.of(context).size.height * 0.15,
+      decoration: BoxDecoration(
+        color: Colors.blue, 
+        borderRadius: BorderRadius.circular(20.0), 
+      ),
+      child: Column(
+        children: [
+            Text(
+              style: TextStyle( fontSize: MediaQuery.of(context).size.height * 0.05),
+              timeLeft.toString(),
+            ),
+          Row(
+            children: [
+              Padding(padding: EdgeInsets.all(5.0),),
+              TextButton(
+                onPressed: () {
+                  _startTimer();
+                },
+                style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                  backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                ),
+                child: Text("Start"),
               ),
-            ),
-            Row(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.all(5.0),
+              Padding(padding: EdgeInsets.all(5.0),),
+              TextButton(
+                onPressed: () {
+                  _resetTimer();
+                },
+                style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                  backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
                 ),
-                Expanded(
-                  child: buildTextField(),
+                child: Text("Reset"),
+              ),
+              Padding(padding: EdgeInsets.all(5.0),),
+              TextButton(
+                onPressed: () {
+                  tim?.cancel();
+                },
+                style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                  backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
                 ),
-              ],
-            ),
-          ],
-        ),
+                child: Text("Pause"),
+              ),
+              Padding(padding: EdgeInsets.all(5.0),),
+            ],
+          ),
+          Padding(padding: EdgeInsets.all(5.0),),
+        ],
       ),
     );
+    
   }
-}
+
+    
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body:
+        Container(
+          color: Colors.yellow,
+          child: Column( // Column is a widget that takes in children and places widgets vertically
+            children: [
+              Padding(padding: EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    teamHeaders(),
+                    SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.65,
+                      child: gridB(context),
+                    ),
+                  ],
+                ),
+              ),
+              Row(children: [ // Row is a widget that takes in children and places widgets horizontally
+                Padding(padding: EdgeInsets.all(5.0),),
+                  Expanded( // expanded causes the child widgets to take up all available horizontal space
+                    child: buildTextField()
+                  ),
+                Padding(padding: EdgeInsets.all(5.0),),
+                  TextButton(
+                    key: Key('SubmitPickButton'),
+                    style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                      foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                      backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                    ),
+                    onPressed: (){ 
+                      player = checkID(tempId);
+                      if(ind < totalPicks && player != 'Temp' && !chosenPlayers.containsKey(tempId)){
+                        playerNames[ind] = player;
+                        chosenPlayers[tempId] = player;
+                        draftedIds.add(tempId);
+                        playerRatings[ind] = playerGrades[tempId] ?? 'F';
+                        ind++;
+                        setState(() {
+                          gridB(context);
+                        });
+                        _resetTimer();
+                        _startTimer();
+                      }
+                      idCotroller.clear();
+                    }, 
+                    child: Text("Make Pick")
+                  ),
+                  Padding(padding: EdgeInsets.all(5.0),),
+                  TextButton(
+                    key: Key('UndoPickButton'),
+                    style: ButtonStyle(
+                      foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                      backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                    ),
+                    onPressed: (){
+                      if(ind > 0){
+                        ind--;
+                        playerNames[ind] = '';
+                        final lastId = draftedIds.removeLast();
+                        chosenPlayers.remove(lastId);
+                        playerRatings.remove(ind);
+                        setState(() {
+                          gridB(context);
+                        });
+                        _resetTimer();
+                        _startTimer();
+                      }
+                    }, 
+                    child: Text("Undo Pick")
+                  ),
+                  Padding(padding: EdgeInsets.all(5.0),),
+                                    timerB(context)
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                      );
+                    }
+                  }
