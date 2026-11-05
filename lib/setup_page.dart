@@ -16,6 +16,7 @@ class _SetupPageState extends State<SetupPage> {
 
   int numTeams = 3;
   String? errorMessage;
+  double maxSeconds = 120; // pick timer length; Slider values are doubles
 
   // One text box controller per possible team. We keep all five so names
   // aren't lost if the user switches from 5 teams to 3 and back.
@@ -64,7 +65,7 @@ class _SetupPageState extends State<SetupPage> {
     // and change the teams once the draft has started.
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => DraftPage(teams: teams)),
+      MaterialPageRoute(builder: (context) => DraftPage(teams: teams, maxSeconds: maxSeconds.round())),
     );
   }
 
@@ -112,6 +113,22 @@ class _SetupPageState extends State<SetupPage> {
                     ),
                   ),
                 ),
+              const SizedBox(height: 12),
+              Text(
+                'Pick timer: ${maxSeconds.round()} seconds',
+                style: const TextStyle(fontSize: 18),
+              ),
+              // Timer length from 30 to 300 seconds in 15-second steps.
+              Slider(
+                key: const Key('timerSlider'),
+                value: maxSeconds,
+                min: 30,
+                max: 300,
+                divisions: 18,
+                label: '${maxSeconds.round()} s',
+                onChanged: (value) => setState(() => maxSeconds = value),
+              ),
+              const SizedBox(height: 12),
               if (errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
