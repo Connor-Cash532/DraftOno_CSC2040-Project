@@ -226,49 +226,52 @@ class _DraftPageState extends State<DraftPage> {
         color: Colors.blue, 
         borderRadius: BorderRadius.circular(20.0), 
       ),
-      child: Column(
+      child: 
+      Column(
         children: [
             Text(
               style: TextStyle( fontSize: MediaQuery.of(context).size.height * 0.05),
               timeLeft.toString(),
             ),
-          Row(
-            children: [
-              Padding(padding: EdgeInsets.all(5.0),),
-              TextButton(
-                onPressed: () {
-                  _startTimer();
-                },
-                style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
-                  backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+          Expanded(
+            child: Row(
+              children: [
+                Padding(padding: EdgeInsets.all(5.0),),
+                TextButton(
+                  onPressed: () {
+                    _startTimer();
+                  },
+                  style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                    foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                    backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                  ),
+                  child: Text("Start"),
                 ),
-                child: Text("Start"),
-              ),
-              Padding(padding: EdgeInsets.all(5.0),),
-              TextButton(
-                onPressed: () {
-                  _resetTimer();
-                },
-                style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
-                  backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                Padding(padding: EdgeInsets.all(5.0),),
+                TextButton(
+                  onPressed: () {
+                    _resetTimer();
+                  },
+                  style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                    foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                    backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                  ),
+                  child: Text("Reset"),
                 ),
-                child: Text("Reset"),
-              ),
-              Padding(padding: EdgeInsets.all(5.0),),
-              TextButton(
-                onPressed: () {
-                  tim?.cancel();
-                },
-                style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
-                  backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
+                Padding(padding: EdgeInsets.all(5.0),),
+                TextButton(
+                  onPressed: () {
+                    tim?.cancel();
+                  },
+                  style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                    foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                    backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
+                  ),
+                  child: Text("Pause"),
                 ),
-                child: Text("Pause"),
-              ),
-              Padding(padding: EdgeInsets.all(5.0),),
-            ],
+                Padding(padding: EdgeInsets.all(5.0),),
+              ],
+            ),
           ),
           Padding(padding: EdgeInsets.all(5.0),),
         ],
@@ -284,7 +287,8 @@ class _DraftPageState extends State<DraftPage> {
       body:
         Container(
           color: Colors.yellow,
-          child: Column( // Column is a widget that takes in children and places widgets vertically
+          child: 
+          Column( // Column is a widget that takes in children and places widgets vertically
             children: [
               Padding(padding: EdgeInsets.all(16.0),
                 child: Column(
@@ -294,61 +298,64 @@ class _DraftPageState extends State<DraftPage> {
                   ],
                 ),
               ),
-              Row(children: [ // Row is a widget that takes in children and places widgets horizontally
-                Padding(padding: EdgeInsets.all(5.0),),
-                  Expanded( // expanded causes the child widgets to take up all available horizontal space
-                    child: buildTextField()
-                  ),
-                Padding(padding: EdgeInsets.all(5.0),),
-                  TextButton(
-                    key: Key('SubmitPickButton'),
-                    style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
-                      foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
-                      backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
-                    ),
-                    onPressed: (){ 
-                      player = checkID(tempId);
-                      if(ind < 50 && player != 'Temp' && !chosenPlayers.containsKey(tempId)){
-                        playerNames[ind] = player;
-                        chosenPlayers[tempId] = player; 
-                        ind++;
-                        setState(() {
-                          gridB(context);
-                        });
-                        _resetTimer();
-                        _startTimer();
-                      }
-                      idCotroller.clear();
-                    }, 
-                    child: Text("Make Pick")
-                  ),
+              Expanded(
+                child: Row(
+                  children: [ // Row is a widget that takes in children and places widgets horizontally
                   Padding(padding: EdgeInsets.all(5.0),),
-                  TextButton(
-                    key: Key('UndoPickButton'),
-                    style: ButtonStyle(
-                      foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
-                      backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                    Expanded( // expanded causes the child widgets to take up all available horizontal space
+                      child: buildTextField()
                     ),
-                    onPressed: (){
-                      if(ind > 0){
-                        ind--;
-                        playerNames[ind] = '';
-                        chosenPlayers.remove(tempId);
-                        setState(() {
-                          gridB(context);
-                        });
-                        _resetTimer();
-                        _startTimer();
-                      }
-                    }, 
-                    child: Text("Undo Pick")
-                  ),
                   Padding(padding: EdgeInsets.all(5.0),),
-                  timerB(context)
-                ],
+                    TextButton(
+                      key: Key('SubmitPickButton'),
+                      style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                        foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                        backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                      ),
+                      onPressed: (){ 
+                        player = checkID(tempId);
+                        if(ind < 50 && player != 'Temp' && !chosenPlayers.containsKey(tempId)){
+                          playerNames[ind] = player;
+                          chosenPlayers[tempId] = player; 
+                          ind++;
+                          setState(() {
+                            gridB(context);
+                          });
+                          _resetTimer();
+                          _startTimer();
+                        }
+                        idCotroller.clear();
+                      }, 
+                      child: Text("Make Pick")
+                    ),
+                    Padding(padding: EdgeInsets.all(5.0),),
+                    TextButton(
+                      key: Key('UndoPickButton'),
+                      style: ButtonStyle(
+                        foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                        backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                      ),
+                      onPressed: (){
+                        if(ind > 0){
+                          ind--;
+                          playerNames[ind] = '';
+                          chosenPlayers.remove(tempId);
+                          setState(() {
+                            gridB(context);
+                          });
+                          _resetTimer();
+                          _startTimer();
+                        }
+                      }, 
+                      child: Text("Undo Pick")
+                    ),
+                    Padding(padding: EdgeInsets.all(5.0),),
+                    timerB(context)
+                  ],
+                ),
               )
             ],
-        )
+                  )
         ),
     );
   }
