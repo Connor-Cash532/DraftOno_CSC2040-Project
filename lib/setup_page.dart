@@ -17,6 +17,7 @@ class _SetupPageState extends State<SetupPage> {
   int numTeams = 3;
   String? errorMessage;
   double maxSeconds = 120; // pick timer length; Slider values are doubles
+  double salaryCap = 110; // default salary cap in millions
 
   // One text box controller per possible team. We keep all five so names
   // aren't lost if the user switches from 5 teams to 3 and back.
@@ -65,7 +66,13 @@ class _SetupPageState extends State<SetupPage> {
     // and change the teams once the draft has started.
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => DraftPage(teams: teams, maxSeconds: maxSeconds.round())),
+      MaterialPageRoute(
+        builder: (context) => DraftPage(
+          teams: teams,
+          maxSeconds: maxSeconds.round(),
+          salaryCap: salaryCap.round(),
+        ),
+      ),
     );
   }
 
@@ -128,6 +135,29 @@ class _SetupPageState extends State<SetupPage> {
                 label: '${maxSeconds.round()} s',
                 onChanged: (value) => setState(() => maxSeconds = value),
               ),
+              const SizedBox(height: 24),
+
+              const Text(
+                'Salary Cap',
+                style: TextStyle(fontSize: 18),
+              ),
+
+              const SizedBox(height: 8),
+
+              Text(
+                '\$${salaryCap.round()} Million',
+                style: const TextStyle(fontSize: 18),
+              ),
+
+              Slider(
+                key: const Key('salaryCapSlider'),
+                value: salaryCap,
+                min: 10,
+                max: 200,
+                divisions: 190,
+                label: '\$${salaryCap.round()}M',
+                onChanged: (value) => setState(() => salaryCap = value),
+              ),
               const SizedBox(height: 12),
               if (errorMessage != null)
                 Padding(
@@ -137,6 +167,7 @@ class _SetupPageState extends State<SetupPage> {
                     style: TextStyle(color: Theme.of(context).colorScheme.error),
                   ),
                 ),
+
               ElevatedButton(
                 onPressed: startDraft,
                 child: const Text('Start draft'),
