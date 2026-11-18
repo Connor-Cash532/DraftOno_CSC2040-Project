@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/services.dart' show rootBundle, ByteData;
@@ -12,23 +13,39 @@ import 'package:excel_plus/excel_plus.dart' hide Border; // hide excel's Border 
 import 'setup_page.dart';
 import 'team.dart';
 
-Future <HashMap<String, String>> readExcel() async { // Function reads the file Master.xlsx in the assets folder
+// List<HashMap<String, dynamic>>
+Future <List<HashMap<String, dynamic>>> readExcel() async { // Function reads the file Master.xlsx in the assets folder
   WidgetsFlutterBinding.ensureInitialized();
 
   final data = await rootBundle.load('assets/Master.xlsx');
+  List<HashMap<String, dynamic>> idAndSalaryList = [];
   final excel = Excel.decodeBytes(data.buffer.asUint8List());
   HashMap<String, String> ids = HashMap();
+  HashMap<String, int> salary = HashMap();
+
   for (final row in excel.streamRowsAsMaps('Master')) { 
     ids[row['ID'].toString()] = row['Player'];
+    if(row['Salary'] is int){
+      salary[row['ID'].toString()] = row['Salary'];
+    } else{
+        salary[row['ID'].toString()] = 999999999999; //Probably need to find a solution that does not use a random number
+    }
   }
-  return ids; //Function returns a hashmap with the ID as the key and player name as the value
+  idAndSalaryList.add(ids);
+  idAndSalaryList.add(salary);
+  return idAndSalaryList; //Function returns a hashmap with the ID as the key and player name as the value
 }
 
 late final HashMap<String, String> ids;
+late final HashMap<String, int> salary;
+
 
 
 Future<void> main() async{
-  ids = await readExcel();
+  List<HashMap<String, dynamic>> idAndSalaryList = await readExcel();
+  ids = (idAndSalaryList)[0] as HashMap<String, String>;
+  salary = (idAndSalaryList)[1] as HashMap<String, int>;
+
   runApp(const MainDraftPage());
 
 }
@@ -55,15 +72,23 @@ class DraftPage extends StatefulWidget {
 
 class _DraftPageState extends State<DraftPage> {
   static const int rounds = 10;
+  static const int maxSalary = 100000000000;
 
   late int numTeams;   // number of columns in the grid
   late int totalPicks; // numTeams * rounds
 
-  String checkID(String id){
+  String checkIDPlayer(String id){
     if(ids.containsKey(id)){
       return ids[id] ?? 'Temp';
     }
     return "Temp";
+  }
+
+  int checkIDSalary(String id){
+    if(salary.containsKey(id)){
+      return salary[id] ?? 0;
+    }
+    return maxSalary;
   }
 
   late TextEditingController _controller;
@@ -87,23 +112,36 @@ class _DraftPageState extends State<DraftPage> {
   List playerNames = <String>["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
   int ind = 0;
   HashMap<String, String> chosenPlayers = HashMap<String, String>();
+  List<double> teamSalarySpace = List<double>.filled(5, 0);
 
   String player = "";
+  int playerSalary = 0;
+  int teamNum = 0;
+  ListQueue<String> submittedIDS = ListQueue<String>();
+  String lastId = "";
+
   Widget buildTextField() =>  TextField( // widget for a text input box that saves the id and checks if it is valid.
             onChanged: (value) { // saves the content of the box
               tempId = value;
-              print(tempId);
+              //print(tempId);
             },
             //onSubmitted: (value) => print(value),
             onSubmitted: (value) { // if the entered value is an id and there are still available picks then it changes the state of the gridB widget
               tempId = value;
-              player = checkID(tempId);
-              print(tempId);
-              print(ind);
-              if(ind < totalPicks && player != 'Temp' && !chosenPlayers.containsKey(tempId)){
+              player = checkIDPlayer(tempId);
+              playerSalary = checkIDSalary(tempId);
+              teamNum = ind % numTeams;
+              //print(tempId);
+              //print(ind);
+              print(playerSalary);
+              print(teamSalarySpace);
+              if(ind < totalPicks && player != 'Temp' && !chosenPlayers.containsKey(tempId) && teamSalarySpace[teamNum] + playerSalary <= maxSalary){
+                print(teamNum);
                 chosenPlayers[tempId] = player; 
                 playerNames[ind] = player;
+                teamSalarySpace[teamNum] = teamSalarySpace[teamNum] + playerSalary;
                 ind++;
+                submittedIDS.addFirst(tempId);
                 setState(() {
                   gridB(context);
                 });
@@ -194,6 +232,7 @@ class _DraftPageState extends State<DraftPage> {
       );
 
   void _startTimer(){
+      tim?.cancel();
       tim = Timer.periodic(Duration(seconds: 1), (timer) {
         if(timeLeft > 0){
           setState(() {
@@ -305,11 +344,15 @@ class _DraftPageState extends State<DraftPage> {
                       backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
                     ),
                     onPressed: (){ 
-                      player = checkID(tempId);
-                      if(ind < 50 && player != 'Temp' && !chosenPlayers.containsKey(tempId)){
+                      player = checkIDPlayer(tempId);
+                      playerSalary = checkIDSalary(tempId);
+                      teamNum = ind % numTeams;
+                      if(ind < 50 && player != 'Temp' && !chosenPlayers.containsKey(tempId) && playerSalary + teamSalarySpace[teamNum] <= maxSalary){
+                        teamSalarySpace[teamNum] = teamSalarySpace[teamNum] + playerSalary;
                         playerNames[ind] = player;
                         chosenPlayers[tempId] = player; 
                         ind++;
+                        submittedIDS.addFirst(tempId);
                         setState(() {
                           gridB(context);
                         });
@@ -330,8 +373,13 @@ class _DraftPageState extends State<DraftPage> {
                     onPressed: (){
                       if(ind > 0){
                         ind--;
+                        lastId = submittedIDS.removeFirst();
+                        teamNum = ind % numTeams;
+                        teamSalarySpace[teamNum] = teamSalarySpace[teamNum] - checkIDSalary(lastId);
                         playerNames[ind] = '';
-                        chosenPlayers.remove(tempId);
+    
+                        chosenPlayers.remove(lastId);
+                        print(chosenPlayers);
                         setState(() {
                           gridB(context);
                         });
