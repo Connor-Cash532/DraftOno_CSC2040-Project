@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-import 'sophia_features.dart';
+import '../lib/sophia_features.dart';
 
 void main() {
   runApp(
