@@ -21,6 +21,8 @@ Future <HashMap<String, String>> readExcel() async { // Function reads the file 
   for (final row in excel.streamRowsAsMaps('Master')) { 
     ids[row['ID'].toString()] = row['Player'];
     final id = row['ID'].toString();
+    playerSalaries[id] =  // reads the players salary
+        int.tryParse(row['Salary'].toString()) ?? 0;
 
     double stat(String column) =>
         double.tryParse(row[column].toString()) ?? 0;
@@ -49,6 +51,7 @@ Future <HashMap<String, String>> readExcel() async { // Function reads the file 
 
 late final HashMap<String, String> ids;
 final Map<String, String> playerGrades = {};
+final Map<String, int> playerSalaries = {}; // player's salary in dollars.
 
 
 Future<void> main() async{
@@ -89,6 +92,168 @@ class _DraftPageState extends State<DraftPage> {
 
   late int numTeams;   // number of columns in the grid
   late int totalPicks; // numTeams * rounds
+  late List<int> pickOwners; // current owner of each pick
+  late List<double> teamBudgets;  // each teams remaining money (millions)
+  final List<TradeRecord> tradeHistory = []; // stores completed trades
+  final List<String> actionHistory = []; // order of trades and selections
+
+  // trades  current pick for a later pick + money
+  bool tradePicks(int laterPickIndex, int money) {
+    // Prevent trades after the draft is finished.
+    if (ind >= totalPicks) return false;
+
+    // only allow trades for picks that haven't happened yet
+    if (laterPickIndex <= ind || laterPickIndex >= totalPicks) {
+      return false;
+    }
+
+    // find current owners of both picks
+    final currentTeam = pickOwners[ind];
+    final otherTeam = pickOwners[laterPickIndex];
+
+    // teams cant trade with themselves
+    if (currentTeam == otherTeam) return false;
+
+    // teams can only trade money they have
+    if (money <= 0 || money > teamBudgets[otherTeam]) {
+      return false;
+    }
+
+    setState(() {
+      // exchnage ownership of the two picks
+      pickOwners[ind] = otherTeam;
+      pickOwners[laterPickIndex] = currentTeam;
+
+      // transfer money between teams.
+      teamBudgets[otherTeam] -= money;
+      teamBudgets[currentTeam] += money;
+    });
+
+    // saves the completed trade
+    tradeHistory.add(
+      TradeRecord(
+        currentPickIndex: ind,
+        laterPickIndex: laterPickIndex,
+        currentTeam: currentTeam,
+        otherTeam: otherTeam,
+        money: money,
+      ),
+    );
+    actionHistory.add('trade');  // records action was a trade
+
+    _resetTimer(); // reset the timer trade
+    _startTimer();
+
+    return true;
+  }
+
+  // reverse trade
+  void undoTrade() {
+
+    // stops if there are no trades to undo
+    if (tradeHistory.isEmpty) return;
+
+    // most recent trade
+    final trade = tradeHistory.removeLast();
+
+    setState(() {
+
+      // gives both picks back to their previous owners
+      pickOwners[trade.currentPickIndex] = trade.currentTeam;
+      pickOwners[trade.laterPickIndex] = trade.otherTeam;
+
+      // return to its previous owners
+      teamBudgets[trade.currentTeam] -= trade.money;
+      teamBudgets[trade.otherTeam] += trade.money;
+    });
+
+    _resetTimer();
+    _startTimer();
+  }
+
+  // trading pick and money
+  Future<void> showTradeDialog() async {
+    final pickController = TextEditingController();
+    final moneyController = TextEditingController();
+
+    // pause draft timer
+    tim?.cancel();
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Trade Pick'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Current Pick: ${ind + 1}'),
+
+              // enter the later pick to trade for
+              TextField(
+                controller: pickController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Later Pick Number',
+                ),
+              ),
+
+              // enter the money in the trade
+              TextField(
+                controller: moneyController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Money (in millions)',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final pickNumber = int.tryParse(pickController.text);
+                final money = int.tryParse(moneyController.text);
+                if (pickNumber == null || money == null) return;
+                // converts the pick number to index
+                final success = tradePicks(pickNumber - 1, money);
+                // closes the popup when the trade succeeds
+                if (success) {
+                  Navigator.pop(dialogContext);
+                }
+              },
+              child: const Text('Confirm Trade'),
+            ),
+          ],
+        );
+      },
+    );
+
+    // restarts the timer only if it isn't already running
+    if (mounted && (tim == null || !tim!.isActive)) {
+      _startTimer();
+    }
+
+    pickController.dispose();
+    moneyController.dispose();
+  }
+
+  // snake draft order
+  int teamIndexForPick(int pickIndex) {
+    final round = pickIndex ~/ numTeams;
+    final position = pickIndex % numTeams;
+
+    if (round.isEven) {
+      return position;
+    } else {
+      return numTeams - 1 - position;
+    }
+  }
 
   String checkID(String id){
     if(ids.containsKey(id)){
@@ -103,8 +268,16 @@ class _DraftPageState extends State<DraftPage> {
   void initState() {
     super.initState();
     _controller = TextEditingController();
-    numTeams = widget.teams.length;
-    totalPicks = numTeams * rounds;
+    numTeams = widget.teams.length; // number of teams selected
+    totalPicks = numTeams * rounds; //total number of picks in the draft
+    pickOwners = List.generate( // snake-draft team
+      totalPicks,
+          (index) => teamIndexForPick(index),
+    );
+    teamBudgets = List.filled(
+      numTeams,
+      widget.salaryCap.toDouble(),
+    );
   }
 
   @override
@@ -119,6 +292,7 @@ class _DraftPageState extends State<DraftPage> {
   int ind = 0;
   Map<int, String> playerRatings = {}; // stores automatic letter grades
   List<String> draftedIds = []; // tracks IDs so undo removes the correct player
+  Map<int, String> playerIds = {}; // player ID
   HashMap<String, String> chosenPlayers = HashMap<String, String>();
 
   String player = "";
@@ -136,6 +310,7 @@ class _DraftPageState extends State<DraftPage> {
               if(ind < totalPicks && player != 'Temp' && !chosenPlayers.containsKey(tempId)){
                 chosenPlayers[tempId] = player;
                 playerNames[ind] = player;
+                playerIds[ind] = tempId;
                 draftedIds.add(tempId);
                 playerRatings[ind] = playerGrades[tempId] ?? 'F';
                 ind++;
@@ -176,28 +351,46 @@ class _DraftPageState extends State<DraftPage> {
             ),
           );
 
-  // Row of team names that sits directly above the grid, one per column.
+  // displays team's name and remaining salary cap
   Widget teamHeaders() => Row(
     children: [
-      for (final team in widget.teams)
+      for (int i = 0; i < widget.teams.length; i++)
         Expanded(
           child: Padding(
             padding: const EdgeInsets.all(2.0),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               decoration: BoxDecoration(
-                color: team.color,
+                color: widget.teams[i].color,
                 borderRadius: BorderRadius.circular(10.0),
               ),
-              child: Text(
-                team.name,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: Column(
+                children: [
+                  // team name
+                  Text(
+                    widget.teams[i].name,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  // remaining salary cap
+                  Text(
+                    '\$${teamBudgets[i].toStringAsFixed(2)}M remaining',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -218,18 +411,28 @@ class _DraftPageState extends State<DraftPage> {
     itemCount: totalPicks, //# of teams times 10
     shrinkWrap: true, //causes the grid to be not scrollable if it does not fit in the screen size
     itemBuilder: (context, index) {
-          // index % numTeams is the column, which is the team making this pick
-          final team = widget.teams[index % numTeams];
-          final isPicked = index < ind;
-          final isCurrentPick = index == ind;
+      // teams in fixed columns
+      final column = index % numTeams;
+      final round = index ~/ numTeams;
+
+      // snake draft order
+      final pickIndex = round * numTeams +
+          (round.isEven ? column : numTeams - 1 - column);
+
+      final team = widget.teams[pickOwners[pickIndex]]; // team that currently owns the pick
+      final isPicked = pickIndex < ind;
+      final isCurrentPick = pickIndex == ind;
           return Padding( //Padding widget that adds padding between the grid boxes
             padding: const EdgeInsets.all(2.0),
             child: Container( // grid item
               decoration: BoxDecoration(
-                // made picks are the full team color; upcoming picks are a faded version
-                color: isPicked ? team.color : team.color.withValues(alpha: 0.25),
+                color: isPicked
+                    ? Color.lerp(team.color, Colors.white, 0.15)!
+                    : Color.lerp(team.color, Colors.white, 0.78)!,
                 // thick border marks the pick currently on the clock
-                border: isCurrentPick ? Border.all(color: Colors.black, width: 3) : null,
+                border: isCurrentPick
+                    ? Border.all(color: const Color(0xFF344054), width: 2.5)
+                    : null,
                 borderRadius: BorderRadius.circular(10.0), // rounds the edges for the grid item
               ),
               child: Center( // grid item contnet
@@ -237,21 +440,29 @@ class _DraftPageState extends State<DraftPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      "Pick: " + playerNames[index],
+                      "Pick: " + playerNames[pickIndex],
                       key: Key("Grid $index"),
                       style: TextStyle(
                         color: isPicked ? Colors.white : Colors.black87,
-                        fontSize: 15,
+                        fontSize: 13,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
-
+                    // Display the player's ID under their name.
                     if (isPicked)
                       Text(
-                        'Grade: ${playerRatings[index] ?? "N/A"}',
+                        playerIds[pickIndex] ?? '',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: 10,
+                        ),
+                      ),
+                    if (isPicked)
+                      Text(
+                        'Grade: ${playerRatings[pickIndex] ?? "N/A"}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -351,7 +562,7 @@ class _DraftPageState extends State<DraftPage> {
     return Scaffold(
       body:
         Container(
-          color: Colors.yellow,
+          color: const Color(0xFFF5F6FA),
           child: Column( // Column is a widget that takes in children and places widgets vertically
             children: [
               Padding(padding: EdgeInsets.all(16.0),
@@ -374,8 +585,10 @@ class _DraftPageState extends State<DraftPage> {
                   TextButton(
                     key: Key('SubmitPickButton'),
                     style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
-                      foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
-                      backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                        foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                        backgroundColor: WidgetStateProperty.all<Color>(
+                          const Color(0xFF3478C0),
+                        )
                     ),
                     onPressed: (){ 
                       player = checkID(tempId);
@@ -385,6 +598,7 @@ class _DraftPageState extends State<DraftPage> {
                         draftedIds.add(tempId);
                         playerRatings[ind] = playerGrades[tempId] ?? 'F';
                         ind++;
+                        actionHistory.add('pick');
                         setState(() {
                           gridB(context);
                         });
@@ -399,27 +613,43 @@ class _DraftPageState extends State<DraftPage> {
                   TextButton(
                     key: Key('UndoPickButton'),
                     style: ButtonStyle(
-                      foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
-                      backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                        foregroundColor: WidgetStateProperty.all<Color>(const Color(0xFF344054)),
+                        backgroundColor: WidgetStateProperty.all<Color>(
+                          const Color(0xFFE2E8F0),
+                        )
                     ),
-                    onPressed: (){
-                      if(ind > 0){
-                        ind--;
-                        playerNames[ind] = '';
-                        final lastId = draftedIds.removeLast();
-                        chosenPlayers.remove(lastId);
-                        playerRatings.remove(ind);
-                        setState(() {
-                          gridB(context);
-                        });
-                        _resetTimer();
-                        _startTimer();
-                      }
-                    }, 
-                    child: Text("Undo Pick")
+                      onPressed: () {
+                        if (actionHistory.isEmpty) return; // stops if there is nothing to undo.
+                        final lastAction = actionHistory.removeLast(); // most recent action
+                        if (lastAction == 'trade') {
+                          undoTrade(); // reverse most recent trade
+                        } else if (lastAction == 'pick') {
+                          setState(() { // reverse player selection
+                            ind--;
+                            playerNames[ind] = '';
+                            final lastId = draftedIds.removeLast();
+                            chosenPlayers.remove(lastId);
+                            playerRatings.remove(ind);
+                          });
+                          _resetTimer();  // restart timer
+                          _startTimer();
+                        }
+                      },
+                      child: Text("Undo Pick")
                   ),
-                  Padding(padding: EdgeInsets.all(5.0),),
-                                    timerB(context)
+                Padding(padding: EdgeInsets.all(5.0),),
+                TextButton(
+                  key: Key('TradeButton'),
+                  onPressed: () {
+                    if (ind < totalPicks) {
+                      showTradeDialog();
+                    }
+                  },
+                  child: Text("Trade"),
+                ),
+
+                Padding(padding: EdgeInsets.all(5.0),),
+                timerB(context)
                                   ],
                                 ),
                               ],
@@ -428,3 +658,20 @@ class _DraftPageState extends State<DraftPage> {
                       );
                     }
                   }
+
+// trade record: used for reversing a trade
+class TradeRecord {
+  final int currentPickIndex; // current pick being traded right now
+  final int laterPickIndex;   // later pick
+  final int currentTeam;      // tram originally on the clock
+  final int otherTeam;        // tram paying money for the current pick
+  final int money;            // amount of money traded
+
+  TradeRecord({
+    required this.currentPickIndex,
+    required this.laterPickIndex,
+    required this.currentTeam,
+    required this.otherTeam,
+    required this.money,
+  });
+}
