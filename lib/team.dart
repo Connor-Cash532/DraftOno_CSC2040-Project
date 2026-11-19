@@ -6,6 +6,7 @@ class Team {
   final Color color;
 
   const Team({required this.name, required this.color});
+
 }
 
 // One distinct color per team slot (team 1 = red, team 2 = blue, ...).

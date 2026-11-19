@@ -1,6 +1,4 @@
 import 'dart:collection';
-import 'dart:ffi';
-import 'dart:io';
 import 'dart:math';
 import 'dart:async';
 import 'package:flutter/services.dart' show rootBundle, ByteData;
@@ -421,7 +419,7 @@ class _DraftPageState extends State<DraftPage> {
                         playerSalary = checkIDSalary(tempId);
                         teamNum = ind % numTeams;
                         print(maxSalary);
-                        if(ind < 50 && player != 'Temp' && !chosenPlayers.containsKey(tempId) && playerSalary + teamSalarySpace[teamNum] <= maxSalary){
+                        if(ind < totalPicks && player != 'Temp' && !chosenPlayers.containsKey(tempId) && playerSalary + teamSalarySpace[teamNum] <= maxSalary){
                           teamSalarySpace[teamNum] = teamSalarySpace[teamNum] + playerSalary;
                           playerNames[ind] = player;
                           chosenPlayers[tempId] = player;
