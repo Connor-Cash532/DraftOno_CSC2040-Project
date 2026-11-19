@@ -1,5 +1,7 @@
 import 'dart:collection';
+import 'dart:ffi';
 import 'dart:io';
+import 'dart:math';
 import 'dart:async';
 import 'package:flutter/services.dart' show rootBundle, ByteData;
 import 'package:flutter/material.dart';
@@ -12,14 +14,23 @@ import 'sophia_features.dart';
 import 'setup_page.dart';
 import 'team.dart';
  
-Future <HashMap<String, String>> readExcel() async { // Function reads the file Master.xlsx in the assets folder
+Future <List<HashMap<String, dynamic>>> readExcel() async { // Function reads the file Master.xlsx in the assets folder
   WidgetsFlutterBinding.ensureInitialized();
 
   final data = await rootBundle.load('assets/Master.xlsx');
+  List<HashMap<String, dynamic>> idAndSalaryList = [];
   final excel = Excel.decodeBytes(data.buffer.asUint8List());
   HashMap<String, String> ids = HashMap();
-  for (final row in excel.streamRowsAsMaps('Master')) { 
+  HashMap<String, int> salary = HashMap();
+
+  for (final row in excel.streamRowsAsMaps('Master')) {
     ids[row['ID'].toString()] = row['Player'];
+    if(row['Salary'] is int){
+      salary[row['ID'].toString()] = row['Salary'];
+    } else{
+        salary[row['ID'].toString()] = 999999999999;
+    }
+
     final id = row['ID'].toString();
     playerSalaries[id] =  // reads the players salary
         int.tryParse(row['Salary'].toString()) ?? 0;
@@ -46,16 +57,22 @@ Future <HashMap<String, String>> readExcel() async { // Function reads the file 
       playerGrades[id] = 'F';
     }
   }
-  return ids; //Function returns a hashmap with the ID as the key and player name as the value
+  idAndSalaryList.add(ids);
+  idAndSalaryList.add(salary);
+  return idAndSalaryList; //Function returns a hashmap with the ID as the key and player name as the value
 }
 
 late final HashMap<String, String> ids;
+late final HashMap<String, int> salary;
 final Map<String, String> playerGrades = {};
 final Map<String, int> playerSalaries = {}; // player's salary in dollars.
 
 
 Future<void> main() async{
-  ids = await readExcel();
+  List<HashMap<String, dynamic>> idAndSalaryList = await readExcel();
+  ids = (idAndSalaryList)[0] as HashMap<String, String>;
+  salary = (idAndSalaryList)[1] as HashMap<String, int>;
+
   runApp(const MainDraftPage());
 
 }
@@ -254,12 +271,19 @@ class _DraftPageState extends State<DraftPage> {
       return numTeams - 1 - position;
     }
   }
-
-  String checkID(String id){
+  late double maxSalary;
+  String checkIDPlayer(String id){
     if(ids.containsKey(id)){
       return ids[id] ?? 'Temp';
     }
     return "Temp";
+  }
+
+  int checkIDSalary(String id){
+    if(salary.containsKey(id)){
+      return salary[id] ?? 0;
+    }
+    return -1;
   }
 
   late TextEditingController _controller;
@@ -268,16 +292,24 @@ class _DraftPageState extends State<DraftPage> {
   void initState() {
     super.initState();
     _controller = TextEditingController();
-    numTeams = widget.teams.length; // number of teams selected
-    totalPicks = numTeams * rounds; //total number of picks in the draft
-    pickOwners = List.generate( // snake-draft team
+
+    numTeams = widget.teams.length;
+    totalPicks = numTeams * rounds;
+
+    // initialize snake draft pick ownership
+    pickOwners = List.generate(
       totalPicks,
           (index) => teamIndexForPick(index),
     );
+
+    // initialize each teams remaining budget
     teamBudgets = List.filled(
       numTeams,
       widget.salaryCap.toDouble(),
     );
+
+    // convert salary cap from millions to dollars
+    maxSalary = widget.salaryCap * 1000000.0;
   }
 
   @override
@@ -294,51 +326,73 @@ class _DraftPageState extends State<DraftPage> {
   List<String> draftedIds = []; // tracks IDs so undo removes the correct player
   Map<int, String> playerIds = {}; // player ID
   HashMap<String, String> chosenPlayers = HashMap<String, String>();
+  List<double> teamSalarySpace = List<double>.filled(5, 0);
 
   String player = "";
+  int playerSalary = 0;
+  int teamNum = 0;
+
   Widget buildTextField() =>  TextField( // widget for a text input box that saves the id and checks if it is valid.
             onChanged: (value) { // saves the content of the box
               tempId = value;
-              print(tempId);
+              //print(tempId);
             },
             //onSubmitted: (value) => print(value),
-            onSubmitted: (value) { // if the entered value is an id and there are still available picks then it changes the state of the gridB widget
-              tempId = value;
-              player = checkID(tempId);
-              print(tempId);
-              print(ind);
-              if(ind < totalPicks && player != 'Temp' && !chosenPlayers.containsKey(tempId)){
-                chosenPlayers[tempId] = player;
-                playerNames[ind] = player;
-                playerIds[ind] = tempId;
-                draftedIds.add(tempId);
-                playerRatings[ind] = playerGrades[tempId] ?? 'F';
-                ind++;
-                setState(() {
-                  gridB(context);
-                });
-                _resetTimer();
-                _startTimer();
-              }
-              else if (player == 'Temp') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Invalid Player ID. Please enter a valid ID.'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-              else if (chosenPlayers.containsKey(tempId)) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('This player has already been drafted!'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-              print(playerNames);
-              idCotroller.clear();
-            },
+    onSubmitted: (value) {
+      tempId = value;
+      player = checkIDPlayer(tempId);
+      playerSalary = checkIDSalary(tempId);
+
+      if (ind < totalPicks &&
+          player != 'Temp' &&
+          !chosenPlayers.containsKey(tempId)) {
+
+        // use the actual owner of the pick
+        teamNum = pickOwners[ind];
+
+        // check that the player fits under the salary cap
+        if (playerSalary < 0 ||
+            playerSalary / 1000000.0 > teamBudgets[teamNum]) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Not enough salary cap space for this player.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        } else {
+          setState(() {
+            chosenPlayers[tempId] = player;
+            playerNames[ind] = player;
+            playerIds[ind] = tempId;
+            playerRatings[ind] = playerGrades[tempId] ?? 'F';
+            draftedIds.add(tempId);
+            teamSalarySpace[teamNum] += playerSalary;
+            teamBudgets[teamNum] -= playerSalary / 1000000.0;
+            actionHistory.add('pick');
+            ind++;
+          });
+
+          _resetTimer();
+          _startTimer();
+        }
+      } else if (player == 'Temp') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid Player ID. Please enter a valid ID.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } else if (chosenPlayers.containsKey(tempId)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This player has already been drafted!'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+
+      idCotroller.clear();
+    },
             key: Key('idTextField'),
             controller: idCotroller,
             decoration: InputDecoration(
@@ -475,6 +529,7 @@ class _DraftPageState extends State<DraftPage> {
       );
 
   void _startTimer(){
+      tim?.cancel();
       tim = Timer.periodic(Duration(seconds: 1), (timer) {
         if(timeLeft > 0){
           setState(() {
@@ -585,71 +640,95 @@ class _DraftPageState extends State<DraftPage> {
                   TextButton(
                     key: Key('SubmitPickButton'),
                     style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
-                        foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                        backgroundColor: WidgetStateProperty.all<Color>(
-                          const Color(0xFF3478C0),
-                        )
+                      foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                      backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
                     ),
-                    onPressed: (){ 
-                      player = checkID(tempId);
-                      if(ind < totalPicks && player != 'Temp' && !chosenPlayers.containsKey(tempId)){
-                        playerNames[ind] = player;
-                        chosenPlayers[tempId] = player;
-                        draftedIds.add(tempId);
-                        playerRatings[ind] = playerGrades[tempId] ?? 'F';
-                        ind++;
-                        actionHistory.add('pick');
-                        setState(() {
-                          gridB(context);
-                        });
-                        _resetTimer();
-                        _startTimer();
-                      }
-                      idCotroller.clear();
-                    }, 
-                    child: Text("Make Pick")
-                  ),
-                  Padding(padding: EdgeInsets.all(5.0),),
-                  TextButton(
-                    key: Key('UndoPickButton'),
-                    style: ButtonStyle(
-                        foregroundColor: WidgetStateProperty.all<Color>(const Color(0xFF344054)),
-                        backgroundColor: WidgetStateProperty.all<Color>(
-                          const Color(0xFFE2E8F0),
-                        )
-                    ),
-                      onPressed: () {
-                        if (actionHistory.isEmpty) return; // stops if there is nothing to undo.
-                        final lastAction = actionHistory.removeLast(); // most recent action
-                        if (lastAction == 'trade') {
-                          undoTrade(); // reverse most recent trade
-                        } else if (lastAction == 'pick') {
-                          setState(() { // reverse player selection
-                            ind--;
-                            playerNames[ind] = '';
-                            final lastId = draftedIds.removeLast();
-                            chosenPlayers.remove(lastId);
-                            playerRatings.remove(ind);
+                    onPressed: () {
+                      player = checkIDPlayer(tempId);
+                      playerSalary = checkIDSalary(tempId);
+
+                      if (ind < totalPicks &&
+                          player != 'Temp' &&
+                          !chosenPlayers.containsKey(tempId)) {
+
+                        // get the team that owns the current pick
+                        teamNum = pickOwners[ind];
+
+                        // make sure the player fits under the salary cap
+                        if (playerSalary < 0 ||
+                            teamSalarySpace[teamNum] + playerSalary > maxSalary) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Not enough salary cap space for this player.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        } else {
+                          setState(() {
+                            playerNames[ind] = player;
+                            playerIds[ind] = tempId;
+                            playerRatings[ind] = playerGrades[tempId] ?? 'F';
+                            chosenPlayers[tempId] = player;
+                            draftedIds.add(tempId);
+                            teamSalarySpace[teamNum] += playerSalary;
+                            actionHistory.add('pick');
+                            ind++;
                           });
-                          _resetTimer();  // restart timer
+
+                          _resetTimer();
                           _startTimer();
                         }
-                      },
-                      child: Text("Undo Pick")
+                      }
+
+                    },
+                    child: const Text("Make Pick"),
                   ),
-                Padding(padding: EdgeInsets.all(5.0),),
+                const SizedBox(width: 5),
+
                 TextButton(
-                  key: Key('TradeButton'),
+                  key: const Key('UndoPickButton'),
                   onPressed: () {
-                    if (ind < totalPicks) {
-                      showTradeDialog();
+                    if (actionHistory.isEmpty) return;
+
+                    final lastAction = actionHistory.removeLast();
+
+                    if (lastAction == 'trade') {
+                      undoTrade();
+                    } else if (lastAction == 'pick' && ind > 0) {
+                      setState(() {
+                        ind--;
+
+                        final lastId = draftedIds.removeLast();
+                        final team = pickOwners[ind];
+                        final amount = checkIDSalary(lastId);
+
+                        if (amount >= 0) {
+                          teamSalarySpace[team] -= amount;
+                          teamBudgets[team] += amount / 1000000.0;
+                        }
+
+                        playerNames[ind] = '';
+                        playerIds.remove(ind);
+                        playerRatings.remove(ind);
+                        chosenPlayers.remove(lastId);
+                      });
+
+                      _resetTimer();
+                      _startTimer();
                     }
                   },
-                  child: Text("Trade"),
+                  child: const Text('Undo'),
                 ),
 
-                Padding(padding: EdgeInsets.all(5.0),),
-                timerB(context)
+                const SizedBox(width: 5),
+
+                TextButton(
+                  onPressed: showTradeDialog,
+                  child: const Text('Trade'),
+                ),
+
+                const SizedBox(width: 5),
+                timerB(context),
                                   ],
                                 ),
                               ],

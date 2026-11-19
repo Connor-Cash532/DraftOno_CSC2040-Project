@@ -7,29 +7,30 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:collection';
 
 import 'package:draft_ono_app/main.dart';
+import 'package:draft_ono_app/setup_page.dart';
+import 'package:draft_ono_app/team.dart';
 
+import 'timer_setting_test.dart';
 void main() {
 
   Future<void> completeSetup( WidgetTester tester) async{
-    await tester.pumpWidget(const MainDraftPage());
-    await tester.pump();
-
-    await tester.tap(find.text('Start draft'));
-    await tester.pumpAndSettle();
+    await pumpSetupPage(tester);
+    await startDraft(tester);
   }
   
   setUpAll(() async {
-    ids = await readExcel();
+    List<HashMap<String, dynamic>> idAndSalaryList = await readExcel();
+    ids = (idAndSalaryList)[0] as HashMap<String, String>;
+    salary = (idAndSalaryList)[1] as HashMap<String, int>;
   });
   
   
     testWidgets('Reveal ID', (WidgetTester tester) async {
     await completeSetup(tester);
       
-    await tester.pumpWidget(const MainDraftPage());
-
     final expectedTextField = find.byKey(Key('idTextField'));
     expect(expectedTextField, findsOneWidget);
 
@@ -64,6 +65,8 @@ void main() {
     textGrid2 = tester.widget<Text>(grid2);
     actualTextGrid2 = textGrid2.data;
     expect(actualTextGrid2, "Pick: Sam Cassell");
+
+    await tester.pump(const Duration(seconds: 500));
   });
 
   testWidgets('Reveal ID Button', (WidgetTester tester) async {
@@ -84,6 +87,7 @@ void main() {
     final String? actualTextGrid1 = textGrid1.data;
     expect(actualTextGrid1, "Pick: Kevin Garnett");
 
+    await tester.pump(const Duration(seconds: 500));
   });
 
     testWidgets('Can not pick same player twice', (WidgetTester tester) async {
@@ -126,6 +130,7 @@ void main() {
 
     expect(actualTextGrid2, "Pick: Michael Redd");
 
+    await tester.pump(const Duration(seconds: 500));
   });
 
   testWidgets('Undo Pick Button', (WidgetTester tester) async {
@@ -166,6 +171,8 @@ void main() {
     textGrid1 = tester.widget<Text>(grid1);
     actualTextGrid1 = textGrid1.data;
     expect(actualTextGrid1, "Pick: Kevin Garnett");
+
+   await tester.pump(const Duration(seconds: 500));
   });
 
 }
