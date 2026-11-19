@@ -1,6 +1,4 @@
 import 'dart:collection';
-import 'dart:ffi';
-import 'dart:io';
 import 'dart:math';
 import 'dart:async';
 import 'package:flutter/services.dart' show rootBundle, ByteData;
@@ -560,49 +558,52 @@ class _DraftPageState extends State<DraftPage> {
         color: Colors.blue, 
         borderRadius: BorderRadius.circular(20.0), 
       ),
-      child: Column(
+      child:
+      Column(
         children: [
             Text(
               style: TextStyle( fontSize: MediaQuery.of(context).size.height * 0.05),
               timeLeft.toString(),
             ),
-          Row(
-            children: [
-              Padding(padding: EdgeInsets.all(5.0),),
-              TextButton(
-                onPressed: () {
-                  _startTimer();
-                },
-                style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
-                  backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+          SizedBox(
+            child: Row(
+              children: [
+                Padding(padding: EdgeInsets.all(5.0),),
+                TextButton(
+                  onPressed: () {
+                    _startTimer();
+                  },
+                  style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                    foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                    backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                  ),
+                  child: Text("Start"),
                 ),
-                child: Text("Start"),
-              ),
-              Padding(padding: EdgeInsets.all(5.0),),
-              TextButton(
-                onPressed: () {
-                  _resetTimer();
-                },
-                style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
-                  backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                Padding(padding: EdgeInsets.all(5.0),),
+                TextButton(
+                  onPressed: () {
+                    _resetTimer();
+                  },
+                  style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                    foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                    backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                  ),
+                  child: Text("Reset"),
                 ),
-                child: Text("Reset"),
-              ),
-              Padding(padding: EdgeInsets.all(5.0),),
-              TextButton(
-                onPressed: () {
-                  tim?.cancel();
-                },
-                style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
-                  backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
+                Padding(padding: EdgeInsets.all(5.0),),
+                TextButton(
+                  onPressed: () {
+                    tim?.cancel();
+                  },
+                  style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                    foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
+                    backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
+                  ),
+                  child: Text("Pause"),
                 ),
-                child: Text("Pause"),
-              ),
-              Padding(padding: EdgeInsets.all(5.0),),
-            ],
+                Padding(padding: EdgeInsets.all(5.0),),
+              ],
+            ),
           ),
           Padding(padding: EdgeInsets.all(5.0),),
         ],
@@ -618,7 +619,8 @@ class _DraftPageState extends State<DraftPage> {
       body:
         Container(
           color: const Color(0xFFF5F6FA),
-          child: Column( // Column is a widget that takes in children and places widgets vertically
+          child:
+          Column( // Column is a widget that takes in children and places widgets vertically
             children: [
               Padding(padding: EdgeInsets.all(16.0),
                 child: Column(
@@ -631,17 +633,20 @@ class _DraftPageState extends State<DraftPage> {
                   ],
                 ),
               ),
-              Row(children: [ // Row is a widget that takes in children and places widgets horizontally
-                Padding(padding: EdgeInsets.all(5.0),),
-                  Expanded( // expanded causes the child widgets to take up all available horizontal space
-                    child: buildTextField()
-                  ),
-                Padding(padding: EdgeInsets.all(5.0),),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Row(children: [ // Row is a widget that takes in children and places widgets horizontally
+                  Padding(padding: EdgeInsets.all(5.0),),
+                    Expanded( // expanded causes the child widgets to take up all available horizontal space
+                      child: buildTextField()
+                    ),
+                  Padding(padding: EdgeInsets.all(5.0),),
+
                   TextButton(
-                    key: Key('SubmitPickButton'),
-                    style: ButtonStyle( // Make pick that when pressed submits the ID entered in the text box to be the team pick
+                    key: const Key('SubmitPickButton'),
+                    style: ButtonStyle(
                       foregroundColor: WidgetStateProperty.all<Color>(Colors.blue),
-                      backgroundColor: WidgetStateProperty.all<Color>(Colors.red)
+                      backgroundColor: WidgetStateProperty.all<Color>(Colors.red),
                     ),
                     onPressed: () {
                       player = checkIDPlayer(tempId);
@@ -651,12 +656,12 @@ class _DraftPageState extends State<DraftPage> {
                           player != 'Temp' &&
                           !chosenPlayers.containsKey(tempId)) {
 
-                        // get the team that owns the current pick
+                        // get the actual team that owns the pick
                         teamNum = pickOwners[ind];
 
-                        // make sure the player fits under the salary cap
+                        // check the team's remaining salary budget
                         if (playerSalary < 0 ||
-                            teamSalarySpace[teamNum] + playerSalary > maxSalary) {
+                            playerSalary / 1000000.0 > teamBudgets[teamNum]) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Not enough salary cap space for this player.'),
@@ -670,7 +675,10 @@ class _DraftPageState extends State<DraftPage> {
                             playerRatings[ind] = playerGrades[tempId] ?? 'F';
                             chosenPlayers[tempId] = player;
                             draftedIds.add(tempId);
+
                             teamSalarySpace[teamNum] += playerSalary;
+                            teamBudgets[teamNum] -= playerSalary / 1000000.0;
+
                             actionHistory.add('pick');
                             ind++;
                           });
@@ -680,10 +688,12 @@ class _DraftPageState extends State<DraftPage> {
                         }
                       }
 
+                      idCotroller.clear();
                     },
-                    child: const Text("Make Pick"),
+                    child: const Text('Make Pick'),
                   ),
-                const SizedBox(width: 5),
+
+                  const SizedBox(width: 5),
 
                 TextButton(
                   key: const Key('UndoPickButton'),
