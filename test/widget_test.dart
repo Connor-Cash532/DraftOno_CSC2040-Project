@@ -64,6 +64,8 @@ void main() {
     textGrid2 = tester.widget<Text>(grid2);
     actualTextGrid2 = textGrid2.data;
     expect(actualTextGrid2, "Pick: Sam Cassell");
+
+     await tester.pump(const Duration(seconds: 500));
   });
 
   testWidgets('Reveal ID Button', (WidgetTester tester) async {
@@ -84,6 +86,7 @@ void main() {
     final String? actualTextGrid1 = textGrid1.data;
     expect(actualTextGrid1, "Pick: Kevin Garnett");
 
+     await tester.pump(const Duration(seconds: 500));
   });
 
     testWidgets('Can not pick same player twice', (WidgetTester tester) async {
@@ -126,6 +129,7 @@ void main() {
 
     expect(actualTextGrid2, "Pick: Michael Redd");
 
+     await tester.pump(const Duration(seconds: 500));
   });
 
   testWidgets('Undo Pick Button', (WidgetTester tester) async {
@@ -166,6 +170,8 @@ void main() {
     textGrid1 = tester.widget<Text>(grid1);
     actualTextGrid1 = textGrid1.data;
     expect(actualTextGrid1, "Pick: Kevin Garnett");
+
+    await tester.pump(const Duration(seconds: 500));
   });
 
 }
