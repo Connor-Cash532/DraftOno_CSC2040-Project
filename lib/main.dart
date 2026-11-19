@@ -302,7 +302,7 @@ class _DraftPageState extends State<DraftPage> {
               style: TextStyle( fontSize: MediaQuery.of(context).size.height * 0.05),
               timeLeft.toString(),
             ),
-          Expanded(
+          SizedBox(
             child: Row(
               children: [
                 Padding(padding: EdgeInsets.all(5.0),),
